@@ -16,7 +16,7 @@ Lx = Ly = Lz = 2*np.pi
 coords = de.CartesianCoordinates('x', 'y', 'z')
 dist = de.Distributor(coords, dtype=dtype)
 xbasis = de.ComplexFourier(coords['x'], size=Nx, bounds=(0, Lx), dealias=dealias)
-ybasis = de.ComplexFourier(coords['x'], size=Ny, bounds=(0, Ly), dealias=dealias)
+ybasis = de.ComplexFourier(coords['y'], size=Ny, bounds=(0, Ly), dealias=dealias)
 zbasis = de.ComplexFourier(coords['z'], size=Nz, bounds=(0, Lz), dealias=dealias)
 
 bases = (xbasis, ybasis, zbasis)
@@ -45,7 +45,6 @@ grad = lambda A: de.Gradient(A, coords)
 
 problem = de.EVP([A, φ, τ_φ], eigenvalue=ω, namespace=locals())
 problem.add_equation("dt(A) + grad(φ) - λ*lap(A) - cross(u, curl(A)) = 0")
-#problem.add_equation("dt(A) + grad(φ) - λ*lap(A) - cross(u, curl(A)) = 0")
 problem.add_equation("div(A) + τ_φ = 0")
 problem.add_equation("integ(φ) = 0")
 solver = problem.build_solver()
