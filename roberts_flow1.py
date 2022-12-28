@@ -1,12 +1,31 @@
+"""
+Dedalus script for kinematic dynamo, drawing from:
+
+Roberts, G.O., 1972,
+``Dynamo action of fluid motions with two-dimensional periodicity''
+
+Usage:
+    roberts_flow1.py [options]
+
+Options:
+    --N=<N>           Resolution in x, y, z [default: 16]
+    --lambda=<λ>      Resistivity [default: 1/8]
+"""
+
 import logging
 logger = logging.getLogger(__name__)
 
 import numpy as np
 import dedalus.public as de
+from fractions import Fraction
 
-Nx = 16
-Ny = 16
-Nz = 16
+from docopt import docopt
+args = docopt(__doc__)
+
+N = int(args['--N'])
+Nx = Ny = Nz = N
+
+λ_in = float(Fraction(args['--lambda']))
 
 dealias = 3/2
 dtype = np.complex128
@@ -38,7 +57,7 @@ u['g'][1] = np.sin(z)
 u['g'][2] = np.sin(y)
 
 λ = dist.Field(name='λ')
-λ['g'] = 1/10
+λ['g'] = λ_in
 
 dt = lambda A: 1j*ω*A
 grad = lambda A: de.Gradient(A, coords)
@@ -49,7 +68,8 @@ problem.add_equation("div(A) + τ_φ = 0")
 problem.add_equation("integ(φ) = 0")
 solver = problem.build_solver()
 
-solver.solve_dense(solver.subproblems[0], rebuild_matrices=True)
-evals = np.sort(solver.eigenvalues.real)
-
+#solver.solve_dense(solver.subproblems[0], rebuild_matrices=True)
+solver.solve_sparse(solver.subproblems[0], N=20, target=0.25, rebuild_matrices=True)
+i_evals = np.argsort(solver.eigenvalues.real)
+evals = solver.eigenvalues[i_evals]
 print(evals)
