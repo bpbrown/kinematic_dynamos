@@ -86,23 +86,32 @@ print(evals)
 
 import matplotlib.pyplot as plt
 
-n_modes = 4 #8
-i_modes = slice(-n_modes*2,None,2)
-fig, ax = plt.subplots(nrows=(n_modes+1), ncols=2, figsize=[12,6])
-ax[0,0].plot(ks, evals.real, linestyle='none', marker='o')
-ax[0,1].plot(ks, evals.imag, linestyle='none', marker='o')
 
+n_modes = 4
+step = 1
 # reduce number of plotted eigenmodes
-i_evals = i_evals[i_modes]
-evals = solver.eigenvalues[i_evals]
-ax[0,0].plot(ks[i_modes], evals.real, linestyle='none', marker='o')
-ax[0,1].plot(ks[i_modes], evals.imag, linestyle='none', marker='o')
+i_modes = slice(None,-(n_modes*step+1),-step)
 
-ax[0,0].set_ylabel(r'$\omega_R$')
-ax[0,1].set_ylabel(r'$\omega_I$')
-curl = lambda A: de.Curl(A)
-B_op = curl(A)
-for n, idx in enumerate(i_evals, start=1):
+for i, idx in enumerate(i_evals[i_modes]):
+    print(i, idx)
+    gs_kw = dict(height_ratios=[1, 6])
+    fig, axd = plt.subplot_mosaic([['eval_R', 'eval_I'],
+                                   ['xz', 'yz']],
+                                   gridspec_kw=gs_kw, figsize=[12,6],
+                                   layout="constrained")
+
+    axd['eval_R'].scatter(ks, evals.real)
+    axd['eval_I'].scatter(ks, evals.imag)
+
+    eval = solver.eigenvalues[idx]
+    axd['eval_R'].scatter(ks[i_modes][i], eval.real)
+    axd['eval_I'].scatter(ks[i_modes][i], eval.imag)
+    fig.suptitle('$\omega_R$={:.2f}'.format(eval.real)+' $\omega_I$={:.2f}'.format(eval.imag))
+
+    axd['eval_R'].set_ylabel(r'$\omega_R$')
+    axd['eval_I'].set_ylabel(r'$\omega_I$')
+    curl = lambda A: de.Curl(A)
+    B_op = curl(A)
     solver.set_state(idx, solver.subsystems[0])
     # B = B_op.evaluate()
     # B.change_scales(1)
@@ -113,12 +122,41 @@ for n, idx in enumerate(i_evals, start=1):
     #ax[1].plot(x[:,0,0], Bg[0][:,0,0]/np.max(np.abs(Bg)), label=f"n={n}")
     print(np.min(Ag[0].imag), np.max(Ag[0].imag))
     #ax[n].pcolormesh(y[0,:,0], z[0,0,:], Ag[0][0,:,:])
-    ax[n,0].pcolormesh(x[:,0,0], z[0,0,:], Ag[0][:,0,:], cmap='RdYlBu_r')
-    ax[n,1].pcolormesh(y[0,:,0], z[0,0,:], Ag[0][0,:,:], cmap='RdYlBu_r')
-    ax[n,0].set_ylabel('$\omega_R$={:.2f}'.format(evals[n-1].real))
-    ax[n,1].set_ylabel('$\omega_I$={:.2f}'.format(evals[n-1].imag))
+    axd['xz'].pcolormesh(x[:,0,0], z[0,0,:], Ag[0][:,0,:], cmap='RdYlBu_r')
+    axd['yz'].pcolormesh(y[0,:,0], z[0,0,:], Ag[0][0,:,:], cmap='RdYlBu_r')
+    axd['xz'].set_xlabel('x')
+    axd['xz'].set_ylabel('z')
+    axd['yz'].set_xlabel('y')
+    axd['yz'].set_ylabel('z')
+    axd['xz'].set_aspect(1)
+    axd['yz'].set_aspect(1)
+    fig.savefig('evals_roberts_flow1_mode{}.png'.format(i), dpi=300)
 
-#fig.tight_layout()
-if args['--verbose']:
-    plt.show()
-fig.savefig('evals_roberts_flow1.png', dpi=300)
+    kx = dist.coeff_layout.local_group_arrays(xbasis.domain, scales=1)
+    ky = dist.coeff_layout.local_group_arrays(ybasis.domain, scales=1)
+    kz = dist.coeff_layout.local_group_arrays(zbasis.domain, scales=1)
+    print('kx', kx.shape)
+    print('ky', ky.shape)
+    print('kz', kz.shape)
+    fig, axd = plt.subplot_mosaic([['kx kz 0', 'ky kz 0']],
+                                   figsize=[12,6],
+                                   layout="constrained")
+    # axd['kx kz 0'].pcolormesh(kx[0][:,0,0], kz[0][0,0,:], np.abs(A['c'][0][:,0,:]))
+    # axd['ky kz 0'].pcolormesh(ky[0][0,:,0], kz[0][0,0,:], np.abs(A['c'][0][0,:,:]))
+    axd['kx kz 0'].pcolormesh(np.abs(A['c'][0][:,0,:]))
+    axd['ky kz 0'].pcolormesh(np.abs(A['c'][0][0,:,:]))
+    axd['kx kz 0'].set_xlabel('x')
+    axd['kx kz 0'].set_ylabel('z')
+    axd['ky kz 0'].set_xlabel('y')
+    axd['ky kz 0'].set_ylabel('z')
+    axd['kx kz 0'].set_aspect(1)
+    axd['ky kz 0'].set_aspect(1)
+    #i_max = np.unravel_index(np.argmax(np.abs(A['c'][0]), axis=None), A['c'][0].shape)
+    i_max = np.argmax(np.abs(A['c'][0][:,0,:]), axis=0)
+    print(kx[0,i_max,:,:].T)
+    #print('kx:', kx[i_max])
+    # axd['kx kz 0'].set_xscale('log')
+    # axd['ky kz 0'].set_xscale('log')
+    # axd['kx kz 0'].set_yscale('log')
+    # axd['ky kz 0'].set_yscale('log')
+    fig.savefig('evals_roberts_flow1_coeffs_mode{}.png'.format(i), dpi=300)
