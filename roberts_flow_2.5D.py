@@ -56,7 +56,6 @@ dtype = np.complex128
 
 coords = de.CartesianCoordinates('x', 'y', 'z')
 dist = de.Distributor(coords, dtype=dtype)
-# xbasis = de.ComplexFourier(coords['x'], size=Nx, bounds=(0, Lx), dealias=dealias)
 ybasis = de.ComplexFourier(coords['y'], size=Ny, bounds=(0, Ly), dealias=dealias)
 zbasis = de.ComplexFourier(coords['z'], size=Nz, bounds=(0, Lz), dealias=dealias)
 
@@ -97,10 +96,18 @@ else:
 λ = dist.Field(name='λ')
 λ['g'] = λ_in
 
-grad = lambda A: de.Gradient(A, coords)
+ex, ey, ez = coords.unit_vector_fields(dist)
 
-# follows Roberts 1972 convention, eq 2.8
+# follows Roberts 1972 convention, eq 1.1, 2.8
 dt = lambda A: ω*A
+dx = lambda A: 1j*kx*A
+dy = lambda A: de.Differentiate(A, coords['y'])
+dz = lambda A: de.Differentiate(A, coords['z'])
+
+#grad = lambda A: de.Gradient(A, coords) #+ 1j*kx*A*ex
+div = lambda A:  dx(A@ex) + dy(A@ey) + dz(A@ez)
+grad = lambda A: dx(A)*ex + dy(A)*ey + dz(A)*ez
+lap = lambda A: dx(dx(A)) + dy(dy(A)) + dz(dz(A))
 
 problem = de.EVP([A, φ, τ_φ], eigenvalue=ω, namespace=locals())
 problem.add_equation("dt(A) + grad(φ) - λ*lap(A) - cross(u, curl(A)) = 0")
