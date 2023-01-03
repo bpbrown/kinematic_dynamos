@@ -118,9 +118,12 @@ problem.add_equation("integ(φ) = 0")
 solver = problem.build_solver()
 
 if args['--dense']:
+    logger.info('starting dense solve')
     solver.solve_dense(solver.subproblems[0], rebuild_matrices=True)
 else:
+    logger.info('starting sparse solve with target={:} and N_evals={:d}'.format(target, N_evals))
     solver.solve_sparse(solver.subproblems[0], N=N_evals, target=target, rebuild_matrices=True)
+logger.info('solve complete')
 i_evals = np.argsort(solver.eigenvalues.real)
 if args['--dense']:
     i_evals = i_evals[0:len(i_evals)//2]
@@ -201,8 +204,8 @@ for i, idx in enumerate(i_evals[i_modes]):
     #i_max = np.unravel_index(np.argmax(np.abs(A['c'][0]), axis=None), A['c'][0].shape)
     i_max = np.argmax(np.abs(A['c'][0][:,0,:]))
     ij_max = np.unravel_index(i_max, A['c'][0][:,0,:].shape)
-    kx_max = kx[0][ij_max[0],0,0]#*2*np.pi/Lx
-    kz_max = kz[2][0,0,ij_max[1]]#*2*np.pi/Lz
+    kx_max = kx[0][ij_max[0],0,0]
+    kz_max = kz[2][0,0,ij_max[1]]
     print('{:.4g}, {:.2g}i @ kx={}, kz={}'.format(eval.real, eval.imag, kx_max, kz_max))
     fig.savefig(data_dir+'/evals_coeffs_mode{:03d}.png'.format(i), dpi=300)
     plt.close(fig)
@@ -213,10 +216,14 @@ for i, idx in enumerate(i_evals[i_modes]):
 eigs = np.array(eigs)
 kxs = np.array(kxs)
 fig, ax = plt.subplots()
-ax.scatter(kxs, eigs.real, label=r'$\omega_R$')
-ax.scatter(kxs, eigs.imag, label=r'$\omega_I$')
+mask = eigs.real > 0
+ax.scatter(kxs[mask], eigs.real[mask], label=r'$\omega_R$')
+ax.scatter(kxs[mask], eigs.imag[mask], label=r'$\omega_I$')
 ax.axhline(y=0, alpha=0.5, color='xkcd:grey')
 ax.set_xlabel('kx')
 ax.set_ylabel('omega')
 ax.legend()
 fig.savefig(data_dir+'/evals_omega_kx.png', dpi=300)
+ax.scatter(kxs[~mask], eigs.real[~mask], alpha=0.2)
+ax.scatter(kxs[~mask], eigs.imag[~mask], alpha=0.2)
+fig.savefig(data_dir+'/evals_omega_kx_all.png', dpi=300)
