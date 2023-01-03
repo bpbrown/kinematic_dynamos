@@ -10,6 +10,13 @@ Usage:
 Options:
     --N=<N>           Resolution in x, y, z [default: 16]
     --lambda=<λ>      Resistivity [default: 1/8]
+    --flow=<flow>     Roberts flow to study [default: 1]
+
+    --aspect=<a>      Aspect ratio, Lx/Lz, with Ly=Lz [default: 1]
+
+    --target=<targ>   Target value for sparse eigenvalue search [default: 0.2]
+    --eigs=<eigs>     Target number of eigenvalues to search for [default: 20]
+
     --dense           Solve densely for all eigenvalues (slow)
 
     --verbose         Show plots on screen
@@ -22,22 +29,39 @@ import numpy as np
 import dedalus.public as de
 from fractions import Fraction
 
+import os
+
 from docopt import docopt
 args = docopt(__doc__)
 
 N = int(args['--N'])
 Nx = Ny = Nz = N
 
-N_evals = 40
-target = 0.5
+N_evals = int(float(args['--eigs']))
+target = float(args['--target'])
 
 λ_in = float(Fraction(args['--lambda']))
+
+flow = int(args['--flow'])
+aspect = float(args['--aspect'])
+
+Lx = Ly = Lz = 2*np.pi
+
+data_dir = 'roberts_flow{:}_N{:d}_lambda{:}'.format(flow, N, λ_in)
+if args['--dense']:
+    data_dir += '_dense'
+if aspect != 1:
+    data_dir += '_a{:s}'.format(args['--aspect'])
+    Lx *= aspect
+    Nx = int(Nx*aspect)
+
+if not os.path.exists('{:s}/'.format(data_dir)):
+    os.mkdir('{:s}/'.format(data_dir))
 
 dealias = 3/2
 dtype = np.complex128
 
-Lx = Ly = Lz = 2*np.pi
-Lx *= 4
+
 
 coords = de.CartesianCoordinates('x', 'y', 'z')
 dist = de.Distributor(coords, dtype=dtype)
@@ -59,15 +83,33 @@ z = zbasis.local_grid(1)
 
 u = dist.VectorField(coords, name='u', bases=bases)
 
-u['g'][0] = np.cos(y) - np.cos(z)
-u['g'][1] = np.sin(z)
-u['g'][2] = np.sin(y)
+if flow == 1:
+    u['g'][0] = np.cos(y) - np.cos(z)
+    u['g'][1] = np.sin(z)
+    u['g'][2] = np.sin(y)
+elif flow == 2:
+    u['g'][0] = np.cos(y) + np.cos(z)
+    u['g'][1] = np.sin(z)
+    u['g'][2] = np.sin(y)
+elif flow == 3:
+    u['g'][0] = 2*np.cos(y)*np.cos(z)
+    u['g'][1] = np.sin(z)
+    u['g'][2] = np.sin(y)
+elif flow == 4:
+    u['g'][0] = np.sin(y+z)
+    u['g'][1] = np.sin(2*z)
+    u['g'][2] = np.sin(2*y)
+else:
+    raise ValueError('flow = {} not a valid choice (flow = {1,2,3,4})'.format(flow))
+
 
 λ = dist.Field(name='λ')
 λ['g'] = λ_in
 
-dt = lambda A: 1j*ω*A
 grad = lambda A: de.Gradient(A, coords)
+
+# follows Roberts 1972 convention, eq 2.8
+dt = lambda A: ω*A
 
 problem = de.EVP([A, φ, τ_φ], eigenvalue=ω, namespace=locals())
 problem.add_equation("dt(A) + grad(φ) - λ*lap(A) - cross(u, curl(A)) = 0")
@@ -115,6 +157,9 @@ for i, idx in enumerate(i_evals[i_modes]):
 
     axd['eval_R'].set_ylabel(r'$\omega_R$')
     axd['eval_I'].set_ylabel(r'$\omega_I$')
+
+    axd['eval_R'].axhline(y=0, alpha=0.5, color='xkcd:grey')
+
     curl = lambda A: de.Curl(A)
     B_op = curl(A)
     solver.set_state(idx, solver.subsystems[0])
@@ -133,7 +178,7 @@ for i, idx in enumerate(i_evals[i_modes]):
     axd['yz'].set_ylabel('z')
     axd['xz'].set_aspect(1)
     axd['yz'].set_aspect(1)
-    fig.savefig('evals_roberts_flow1_mode{}.png'.format(i), dpi=300)
+    fig.savefig(data_dir+'/evals_mode{:03d}.png'.format(i), dpi=300)
     plt.close(fig)
 
     kx = dist.coeff_layout.local_group_arrays(xbasis.domain, scales=1)
@@ -158,14 +203,8 @@ for i, idx in enumerate(i_evals[i_modes]):
     ij_max = np.unravel_index(i_max, A['c'][0][:,0,:].shape)
     kx_max = kx[0][ij_max[0],0,0]#*2*np.pi/Lx
     kz_max = kz[2][0,0,ij_max[1]]#*2*np.pi/Lz
-    print(eval, kx_max, kz_max)
-    #print(kx[0,i_max,:,:].T)
-    #print('kx:', kx[i_max])
-    # axd['kx kz 0'].set_xscale('log')
-    # axd['ky kz 0'].set_xscale('log')
-    # axd['kx kz 0'].set_yscale('log')
-    # axd['ky kz 0'].set_yscale('log')
-    fig.savefig('evals_roberts_flow1_coeffs_mode{:3d}.png'.format(i), dpi=300)
+    print('{:.4g}, {:.2g}i @ kx={}, kz={}'.format(eval.real, eval.imag, kx_max, kz_max))
+    fig.savefig(data_dir+'/evals_coeffs_mode{:03d}.png'.format(i), dpi=300)
     plt.close(fig)
 
     kxs.append(kx_max)
@@ -176,7 +215,8 @@ kxs = np.array(kxs)
 fig, ax = plt.subplots()
 ax.scatter(kxs, eigs.real, label=r'$\omega_R$')
 ax.scatter(kxs, eigs.imag, label=r'$\omega_I$')
+ax.axhline(y=0, alpha=0.5, color='xkcd:grey')
 ax.set_xlabel('kx')
 ax.set_ylabel('omega')
 ax.legend()
-fig.savefig('evals_roberts_flow1_omega_kx.png', dpi=300)
+fig.savefig(data_dir+'/evals_omega_kx.png', dpi=300)
