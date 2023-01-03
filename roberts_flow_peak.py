@@ -144,5 +144,7 @@ import scipy.optimize as sciop
 logger.info('starting optimization solve')
 result = sciop.minimize(peak_growth, kx_start)
 logger.info('solve complete')
-print(result)
-print('fastest growing mode, ω = {:} at kx = {:}'.format(-1*result.fun, result.x[0]))
+if result.success:
+    logger.info('fastest growing mode, ω = {:} at kx = {:}'.format(-1*result.fun, result.x[0]))
+else:
+    logger.info('solver failed to converge: {}'.format(result.message))
