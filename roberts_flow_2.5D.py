@@ -14,6 +14,8 @@ Options:
 
     --kx=<kx>         Target kx to study [default: 0.55]
 
+    --aspect=<a>      Horizontal number of patterns in domain (integer) [default: 1]
+
     --target=<targ>   Target value for sparse eigenvalue search [default: 0.2]
     --eigs=<eigs>     Target number of eigenvalues to search for [default: 20]
 
@@ -34,8 +36,10 @@ import os
 from docopt import docopt
 args = docopt(__doc__)
 
+aspect = int(args['--aspect'])
+
 N = int(args['--N'])
-Nx = Ny = Nz = N
+Nx = Ny = Nz = N*aspect
 
 N_evals = int(float(args['--eigs']))
 target = float(args['--target'])
@@ -45,7 +49,7 @@ target = float(args['--target'])
 flow = int(args['--flow'])
 kx = float(args['--kx'])
 
-Ly = Lz = 2*np.pi
+Ly = Lz = 2*np.pi*aspect
 
 data_dir = 'roberts_flow{:}_N{:d}_lambda{:}'.format(flow, N, λ_in)
 if args['--dense']:
@@ -108,6 +112,7 @@ dz = lambda A: de.Differentiate(A, coords['z'])
 div = lambda A:  dx(A@ex) + dy(A@ey) + dz(A@ez)
 grad = lambda A: dx(A)*ex + dy(A)*ey + dz(A)*ez
 lap = lambda A: dx(dx(A)) + dy(dy(A)) + dz(dz(A))
+curl = lambda A: (dy(A@ez)-dz(A@ey))*ex + (dz(A@ex)-dx(A@ez))*ey + (dx(A@ey)-dy(A@ex))*ez
 
 problem = de.EVP([A, φ, τ_φ], eigenvalue=ω, namespace=locals())
 problem.add_equation("dt(A) + grad(φ) - λ*lap(A) - cross(u, curl(A)) = 0")
@@ -127,4 +132,5 @@ if args['--dense']:
     i_evals = i_evals[0:len(i_evals)//2]
 
 evals = solver.eigenvalues[i_evals]
-print(evals)
+#print('evals:\n{}'.format(evals))
+print('fastest growing mode: {}'.format(evals[-1]))
