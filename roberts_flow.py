@@ -204,8 +204,8 @@ for i, idx in enumerate(i_evals[i_modes]):
     #i_max = np.unravel_index(np.argmax(np.abs(A['c'][0]), axis=None), A['c'][0].shape)
     i_max = np.argmax(np.abs(A['c'][0][:,0,:]))
     ij_max = np.unravel_index(i_max, A['c'][0][:,0,:].shape)
-    kx_max = kx[0][ij_max[0],0,0]
-    kz_max = kz[2][0,0,ij_max[1]]
+    kx_max = kx[0][ij_max[0],0,0]*2*np.pi/Lx
+    kz_max = kz[2][0,0,ij_max[1]]*2*np.pi/Lz
     print('{:.4g}, {:.2g}i @ kx={}, kz={}'.format(eval.real, eval.imag, kx_max, kz_max))
     fig.savefig(data_dir+'/evals_coeffs_mode{:03d}.png'.format(i), dpi=300)
     plt.close(fig)
