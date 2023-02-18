@@ -14,6 +14,9 @@ Also included are:
 
 ## Usage
 
+**Note: currently scripts in this repo must be run on the `d3-half-dimensions` branch of dedalus.**
+
+
 ### Growth curves
 
 To compute growth curves at a variety of `lambda`, run
