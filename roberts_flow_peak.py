@@ -4,10 +4,10 @@ Dedalus script for kinematic dynamo, drawing from:
 Roberts, G.O., 1972,
 ``Dynamo action of fluid motions with two-dimensional periodicity''
 
-This script solves in 2.5D and optimizes to find the peak growth rate.
+This script solves in 2.5D and optimizes to find the peak growth rate for a given lamda and flow.
 
 Usage:
-    roberts_flow1.py [options]
+    roberts_flow_peak.py [options]
 
 Options:
     --N=<N>           Resolution in y, z [default: 16]
@@ -109,14 +109,11 @@ ex, ey, ez = coords.unit_vector_fields(dist)
 # follows Roberts 1972 convention, eq 1.1, 2.8
 dt = lambda A: ω*A
 dx = lambda A: 1j*kx*A
-dy = lambda A: de.Differentiate(A, coords['y'])
-dz = lambda A: de.Differentiate(A, coords['z'])
 
-#grad = lambda A: de.Gradient(A, coords) #+ 1j*kx*A*ex
-div = lambda A:  dx(A@ex) + dy(A@ey) + dz(A@ez)
-grad = lambda A: dx(A)*ex + dy(A)*ey + dz(A)*ez
-lap = lambda A: dx(dx(A)) + dy(dy(A)) + dz(dz(A))
-curl = lambda A: (dy(A@ez)-dz(A@ey))*ex + (dz(A@ex)-dx(A@ez))*ey + (dx(A@ey)-dy(A@ex))*ez
+div = lambda A:  de.div(A) + dx(A@ex)
+grad = lambda A: de.Gradient(A, coords) + dx(A)*ex
+lap = lambda A: de.lap(A) + dx(dx(A))
+curl = lambda A: de.Curl(A) - dx(A@ez)*ey + dx(A@ey)*ez
 
 problem = de.EVP([A, φ, τ_φ], eigenvalue=ω, namespace=locals())
 problem.add_equation("dt(A) + grad(φ) - λ*lap(A) - cross(u, curl(A)) = 0")
